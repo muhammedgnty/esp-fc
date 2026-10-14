@@ -9,6 +9,10 @@ namespace Espfc {
 Espfc::Espfc()
     : _hardware{_model}, _controller{_model}, _telemetry{_model}, _input{_model, _telemetry}, _actuator{_model},
       _sensor{_model}, _mixer{_model}, _blackbox{_model}, _buzzer{_model}, _serial{_model, _telemetry}
+#if defined(ESPFC_IHA_LINK)
+      ,
+      _ihaLink{_model, _input.getIha()}
+#endif
 {
 }
 
@@ -16,6 +20,9 @@ int Espfc::load()
 {
   PIN_DEBUG_INIT();
   _model.load();
+#if defined(ESPFC_IHA_LINK)
+  _model.config.ihaPreset();
+#endif
   _model.appQueue.begin();
   return 1;
 }
@@ -34,6 +41,9 @@ int Espfc::begin()
   _controller.begin();
   _blackbox.begin(); // requires _serial.begin(), _actuator.begin()
   _buzzer.begin();
+#if defined(ESPFC_IHA_LINK)
+  _ihaLink.begin(); // requires _input.begin(), _mixer.begin()
+#endif
 
   _model.state.buzzer.push(BUZZER_SYSTEM_INIT);
 

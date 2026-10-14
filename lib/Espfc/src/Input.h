@@ -2,6 +2,7 @@
 
 #include "Device/Input/InputCRSF.hpp"
 #include "Device/Input/InputIBUS.hpp"
+#include "Device/Input/InputIha.hpp"
 #include "Device/Input/InputPPM.hpp"
 #include "Device/Input/InputSBUS.hpp"
 #include "Device/InputDevice.hpp"
@@ -52,6 +53,10 @@ public:
 
   void updateFrameRate();
   Device::InputDevice* getInputDevice();
+  Device::Input::InputIha& getIha()
+  {
+    return _iha;
+  }
 
 private:
   Model& _model;
@@ -62,6 +67,7 @@ private:
   Device::Input::InputIBUS _ibus;
   Device::Input::InputSBUS _sbus;
   Device::Input::InputCRSF _crsf;
+  Device::Input::InputIha _iha;
 #if defined(ESPFC_HAL_ESPNOW)
   Device::Input::InputEspNow _espnow;
 #endif

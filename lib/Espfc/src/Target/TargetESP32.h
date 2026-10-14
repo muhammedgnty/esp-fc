@@ -7,7 +7,11 @@
 #define ESPFC_OUTPUT_0 27
 #define ESPFC_OUTPUT_1 25
 #define ESPFC_OUTPUT_2 4
+#if defined(ESPFC_IHA_LINK)
+#define ESPFC_OUTPUT_3 33 // gpio 12 is a strapping pin
+#else
 #define ESPFC_OUTPUT_3 12
+#endif
 #define ESPFC_OUTPUT_4 -1
 #define ESPFC_OUTPUT_5 -1
 #define ESPFC_OUTPUT_6 -1
@@ -20,12 +24,14 @@
 #define ESPFC_SERIAL_0_BAUD (SERIAL_SPEED_115200)
 #define ESPFC_SERIAL_0_BBAUD (SERIAL_SPEED_NONE)
 
+#if !defined(ESPFC_IHA_LINK) // gpio 33 drives motor 4
 #define ESPFC_SERIAL_1
 #define ESPFC_SERIAL_1_TX 33
 #define ESPFC_SERIAL_1_RX 32
 #define ESPFC_SERIAL_1_FN (SERIAL_FUNCTION_MSP)
 #define ESPFC_SERIAL_1_BAUD (SERIAL_SPEED_115200)
 #define ESPFC_SERIAL_1_BBAUD (SERIAL_SPEED_NONE)
+#endif
 
 #define ESPFC_SERIAL_2
 #define ESPFC_SERIAL_2_TX 17
@@ -66,7 +72,11 @@
 
 #define ESPFC_ADC_SCALE (3.3f / 4096)
 
+#if defined(ESPFC_IHA_LINK)
+#define ESPFC_FEATURE_MASK 0 // rc comes from the phone link
+#else
 #define ESPFC_FEATURE_MASK (FEATURE_RX_SERIAL)
+#endif
 
 #define ESPFC_GYRO_I2C_RATE_MAX 2000
 #define ESPFC_GYRO_SPI_RATE_MAX 4000

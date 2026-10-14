@@ -353,6 +353,11 @@ void FAST_CODE_ATTR Input::updateFrameRate()
 
 Device::InputDevice* Input::getInputDevice()
 {
+#if defined(ESPFC_IHA_LINK)
+  _iha.begin();
+  _model.logger.info().logln("RX IHA");
+  return &_iha;
+#endif
   auto* serial = _model.getSerialStream(SERIAL_FUNCTION_RX_SERIAL);
   if (serial && _model.isFeatureActive(FEATURE_RX_SERIAL))
   {

@@ -1132,7 +1132,35 @@ public:
 
     // only local development settings
     devPreset();
+
+#if defined(ESPFC_IHA_LINK)
+    baro.dev = BARO_DEFAULT; // autodetect, needed for alt hold
+    output.protocol = ESC_PROTOCOL_PWM;
+    ihaPreset();
+#endif
   }
+
+#if defined(ESPFC_IHA_LINK)
+  // Settings the phone link relies on (iha-link rc_channels.h), applied on every boot so a stored
+  // configuration cannot break arming or flight modes.
+  void ihaPreset()
+  {
+    auto set = [this](size_t i, FlightMode id, int ch, int16_t min, int16_t max) {
+      conditions[i].id = id;
+      conditions[i].ch = ch;
+      conditions[i].min = min;
+      conditions[i].max = max;
+      conditions[i].logicMode = 0;
+      conditions[i].linkId = 0;
+    };
+    set(0, MODE_ARMED, AXIS_AUX_1, 1300, 2100);
+    set(1, MODE_ANGLE, AXIS_AUX_1 + 1, 1300, 2100);
+    set(2, MODE_ALTHOLD, AXIS_AUX_1 + 1, 1700, 2100);
+    featureMask &= ~(FEATURE_RX_PPM | FEATURE_RX_SERIAL | FEATURE_RX_SPI);
+    if (output.protocol == ESC_PROTOCOL_DISABLED) output.protocol = ESC_PROTOCOL_PWM;
+    if (baro.dev == BARO_NONE) baro.dev = BARO_DEFAULT;
+  }
+#endif
 
   void devPreset()
   {

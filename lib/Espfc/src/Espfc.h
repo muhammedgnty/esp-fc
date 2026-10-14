@@ -2,6 +2,7 @@
 
 #include "Blackbox/Blackbox.h"
 #include "Connect/Buzzer.hpp"
+#include "Connect/IhaLink.hpp"
 #include "Control/Actuator.h"
 #include "Control/Controller.h"
 #include "Hardware.h"
@@ -46,6 +47,9 @@ private:
   Blackbox::Blackbox _blackbox;
   Connect::Buzzer _buzzer;
   SerialManager _serial;
+#if defined(ESPFC_IHA_LINK)
+  Connect::IhaLink _ihaLink;
+#endif
   uint32_t _loop_next;
 };
 
