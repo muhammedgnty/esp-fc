@@ -1135,6 +1135,7 @@ public:
 
 #if defined(ESPFC_IHA_LINK)
     baro.dev = BARO_DEFAULT; // autodetect, needed for alt hold
+    i2cSpeed = 400;          // MPU-6050 limit
     output.protocol = ESC_PROTOCOL_PWM;
     ihaPreset();
 #endif

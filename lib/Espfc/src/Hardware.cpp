@@ -38,6 +38,40 @@ static Espfc::Device::Baro::BaroBMP280 bmp280;
 static Espfc::Device::Baro::BaroSPL06 spl06;
 } // namespace
 
+namespace {
+
+// A reset in the middle of a transfer leaves a slave holding SDA low; the sensors are not power cycled with the
+// mcu. Clock it out and send a stop (I2C-bus specification 3.1.16). Returns the number of clocks needed.
+int recoverI2C(int sda, int scl)
+{
+  using Espfc::Hal::Gpio;
+  Gpio::pinMode(sda, Gpio::InputPullup);
+  Gpio::pinMode(scl, Gpio::InputPullup);
+  delayMicroseconds(10);
+  int clocks = 0;
+  while (Gpio::digitalRead(sda) == Gpio::Low && clocks < 9)
+  {
+    Gpio::pinMode(scl, Gpio::Output);
+    Gpio::digitalWrite(scl, Gpio::Low);
+    delayMicroseconds(10);
+    Gpio::pinMode(scl, Gpio::InputPullup);
+    delayMicroseconds(10);
+    clocks++;
+  }
+  if (clocks > 0)
+  {
+    // stop condition: SDA rises while SCL is high
+    Gpio::pinMode(sda, Gpio::Output);
+    Gpio::digitalWrite(sda, Gpio::Low);
+    delayMicroseconds(10);
+    Gpio::pinMode(sda, Gpio::InputPullup);
+    delayMicroseconds(10);
+  }
+  return clocks;
+}
+
+} // namespace
+
 namespace Espfc {
 
 Hardware::Hardware(Model& model): _model(model) {}
@@ -79,6 +113,11 @@ void Hardware::initBus()
 #endif
 
 #if defined(ESPFC_I2C_0)
+  if (_model.config.pin[PIN_I2C_0_SDA] != -1 && _model.config.pin[PIN_I2C_0_SCL] != -1)
+  {
+    const int clocks = recoverI2C(_model.config.pin[PIN_I2C_0_SDA], _model.config.pin[PIN_I2C_0_SCL]);
+    if (clocks > 0) _model.logger.info().log("I2C RECOVER").logln(clocks);
+  }
   auto* i2cBus = Hal::getBusI2C(0);
   int i2cResult = i2cBus->begin(_model.config.pin[PIN_I2C_0_SDA], _model.config.pin[PIN_I2C_0_SCL],
                                 _model.config.i2cSpeed * 1000ul);

@@ -78,6 +78,9 @@ bool IhaNet::begin(const char* password)
   if (!WiFi.softAP(_ssid, password, AP_CHANNEL, 0, AP_MAX_CLIENTS)) return false;
   // Power save adds tens of ms of latency on the control link.
   esp_wifi_set_ps(WIFI_PS_NONE);
+  // Full power (19.5 dBm) disturbs the barometer next to the board: pressure noise 17 Pa (about 1.5 m),
+  // 4 Pa at 8.5 dBm (measured with a BMP280 module, 2026-10-14). The pilot is near the drone anyway.
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
 
   _server = openSocket(SOCK_STREAM, iha::ProtocolConfig::kTcpPort);
   _udp = openSocket(SOCK_DGRAM, iha::ProtocolConfig::kUdpPort);
