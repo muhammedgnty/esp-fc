@@ -12,6 +12,8 @@ namespace {
 
 constexpr uint8_t AP_CHANNEL = 6;
 constexpr uint8_t AP_MAX_CLIENTS = 3; // phone, a second phone that gets "busy", diagnostics PC
+// DSCP CS7: Wi-Fi WMM puts it in the voice queue, ahead of everything else on the air.
+constexpr int EMERGENCY_TOS = 0xE0;
 
 int openSocket(int type, uint16_t port)
 {
@@ -85,7 +87,13 @@ bool IhaNet::begin(const char* password)
   _server = openSocket(SOCK_STREAM, iha::ProtocolConfig::kTcpPort);
   _udp = openSocket(SOCK_DGRAM, iha::ProtocolConfig::kUdpPort);
   _diag = openSocket(SOCK_DGRAM, DIAG_PORT);
-  if (_server < 0 || _udp < 0 || _diag < 0) return false;
+  _discovery = openSocket(SOCK_DGRAM, iha::ProtocolConfig::kDiscoveryPort);
+  _emergency = openSocket(SOCK_DGRAM, iha::ProtocolConfig::kEmergencyPort);
+  if (_server < 0 || _udp < 0 || _diag < 0 || _discovery < 0 || _emergency < 0) return false;
+  setsockopt(_emergency, IPPROTO_IP, IP_TOS, &EMERGENCY_TOS, sizeof(EMERGENCY_TOS));
+  // Scans arrive as broadcasts; lwIP may only deliver those to sockets that ask for them.
+  const int one = 1;
+  setsockopt(_discovery, SOL_SOCKET, SO_BROADCAST, &one, sizeof(one));
   return listen(_server, 2) == 0;
 }
 
@@ -104,7 +112,9 @@ void IhaNet::poll(iha::Protocol& protocol, uint32_t timeoutMs)
   FD_SET(_server, &fds);
   FD_SET(_udp, &fds);
   FD_SET(_diag, &fds);
-  int maxFd = std::max(_server, std::max(_udp, _diag));
+  FD_SET(_discovery, &fds);
+  FD_SET(_emergency, &fds);
+  int maxFd = std::max(std::max(std::max(_server, _udp), std::max(_diag, _discovery)), _emergency);
   if (_client >= 0)
   {
     FD_SET(_client, &fds);
@@ -113,6 +123,9 @@ void IhaNet::poll(iha::Protocol& protocol, uint32_t timeoutMs)
   timeval tv{static_cast<time_t>(timeoutMs / 1000), static_cast<suseconds_t>((timeoutMs % 1000) * 1000)};
   if (select(maxFd + 1, &fds, nullptr, nullptr, &tv) <= 0) return;
   const uint64_t now = nowUs();
+
+  // Priority: STOP, then the session, then commands and sticks (docs/protocol.md §3.7).
+  if (FD_ISSET(_emergency, &fds)) readEmergency(protocol);
 
   if (FD_ISSET(_server, &fds))
   {
@@ -156,6 +169,8 @@ void IhaNet::poll(iha::Protocol& protocol, uint32_t timeoutMs)
     }
   }
 
+  if (FD_ISSET(_discovery, &fds)) answerDiscovery(protocol, now);
+
   if (FD_ISSET(_diag, &fds))
   {
     uint8_t buf[64];
@@ -167,6 +182,44 @@ void IhaNet::poll(iha::Protocol& protocol, uint32_t timeoutMs)
       _diagPort = ntohs(peer.sin_port);
       len = sizeof(peer);
     }
+  }
+}
+
+// Only the app of the current (or last) session may stop the motors; its ACK goes out before anything else.
+void IhaNet::readEmergency(iha::Protocol& protocol)
+{
+  uint8_t in[128];
+  uint8_t ack[iha::Protocol::kAckBufferLen];
+  sockaddr_in peer{};
+  socklen_t len = sizeof(peer);
+  for (;;)
+  {
+    const int n = recvfrom(_emergency, in, sizeof(in), MSG_DONTWAIT, reinterpret_cast<sockaddr*>(&peer), &len);
+    if (n <= 0) break;
+    if (_clientIp != 0 && peer.sin_addr.s_addr == _clientIp)
+    {
+      const size_t reply = protocol.onEmergencyDatagram(in, static_cast<size_t>(n), ack, sizeof(ack));
+      if (reply > 0) sendto(_emergency, ack, reply, 0, reinterpret_cast<sockaddr*>(&peer), len);
+    }
+    len = sizeof(peer);
+  }
+}
+
+// Answered right away from this task; a scan is a few datagrams at most.
+void IhaNet::answerDiscovery(const iha::Protocol& protocol, uint64_t now)
+{
+  char in[128];
+  char out[256];
+  sockaddr_in peer{};
+  socklen_t len = sizeof(peer);
+  for (;;)
+  {
+    const int n = recvfrom(_discovery, in, sizeof(in), MSG_DONTWAIT, reinterpret_cast<sockaddr*>(&peer), &len);
+    if (n <= 0) break;
+    const bool busy = _client >= 0 && !protocol.sessionIdle(now);
+    const size_t reply = protocol.discoveryReply(in, static_cast<size_t>(n), _ssid, busy, out, sizeof(out));
+    if (reply > 0) sendto(_discovery, out, reply, 0, reinterpret_cast<sockaddr*>(&peer), len);
+    len = sizeof(peer);
   }
 }
 

@@ -35,6 +35,8 @@ public:
 private:
   void closeSession(iha::Protocol& protocol);
   void readSession(iha::Protocol& protocol, uint64_t now);
+  void answerDiscovery(const iha::Protocol& protocol, uint64_t now);
+  void readEmergency(iha::Protocol& protocol);
 
   static constexpr size_t MAX_LINE = 1024;
 
@@ -42,6 +44,8 @@ private:
   int _server = -1;
   int _udp = -1;
   int _diag = -1;
+  int _discovery = -1;
+  int _emergency = -1;
   int _client = -1;
   uint32_t _clientIp = 0;
   uint16_t _appPort = 0;
