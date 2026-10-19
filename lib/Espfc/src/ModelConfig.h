@@ -1158,6 +1158,17 @@ public:
     set(1, MODE_ANGLE, AXIS_AUX_1 + 1, 1300, 2100);
     set(2, MODE_ALTHOLD, AXIS_AUX_1 + 1, 1700, 2100);
     featureMask &= ~(FEATURE_RX_PPM | FEATURE_RX_SERIAL | FEATURE_RX_SPI);
+    // The link sends exact values in AETR order; there is no transmitter to calibrate.
+    input.midRc = 1500;
+    input.minRc = 885;
+    input.maxRc = 2115;
+    for (size_t i = 0; i < AXIS_COUNT_RPYT + 2; i++)
+    {
+      input.channel[i].map = i == AXIS_YAW ? AXIS_THRUST : (i == AXIS_THRUST ? AXIS_YAW : i);
+      input.channel[i].min = 1000;
+      input.channel[i].neutral = 1500;
+      input.channel[i].max = 2000;
+    }
     if (output.protocol == ESC_PROTOCOL_DISABLED) output.protocol = ESC_PROTOCOL_PWM;
     if (baro.dev == BARO_NONE) baro.dev = BARO_DEFAULT;
   }
